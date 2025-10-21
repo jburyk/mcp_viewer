@@ -50,17 +50,48 @@ export interface SSEConfig {
   url: string;
 }
 
+export interface ProxyConfig {
+  proxyUrl: string;
+}
+
 export class MCPClientWrapper {
   private client: Client | null = null;
   private transport: StdioClientTransport | SSEClientTransport | null = null;
+  private sessionId: string | null = null;
+  private proxyUrl: string | null = null;
+  private connectionType: 'direct' | 'proxy' = 'direct';
 
-  async connectStdio(_config: StdioConfig): Promise<MCPContext> {
-    // Note: stdio transport won't work in browser, this is for reference
-    // In a real browser implementation, you'd need a backend proxy
-    throw new Error('stdio transport is not supported in browser environment. Please use SSE or implement a backend proxy.');
+  async connectStdio(config: StdioConfig, proxyConfig?: ProxyConfig): Promise<MCPContext> {
+    // Use proxy server for stdio connections
+    const proxyUrl = proxyConfig?.proxyUrl || 'http://localhost:3001';
+    this.proxyUrl = proxyUrl;
+    this.connectionType = 'proxy';
+
+    const response = await fetch(`${proxyUrl}/api/sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        command: config.command,
+        args: config.args || [],
+        env: config.env || {},
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.details || error.error || 'Failed to connect to proxy');
+    }
+
+    const data = await response.json();
+    this.sessionId = data.sessionId;
+
+    return data.context;
   }
 
   async connectSSE(config: SSEConfig): Promise<MCPContext> {
+    this.connectionType = 'direct';
     this.client = new Client(
       {
         name: 'mcp-context-viewer',
@@ -102,17 +133,30 @@ export class MCPClientWrapper {
   }
 
   async disconnect(): Promise<void> {
-    if (this.client) {
-      await this.client.close();
-      this.client = null;
-    }
-    if (this.transport) {
-      await this.transport.close();
-      this.transport = null;
+    if (this.connectionType === 'proxy' && this.sessionId && this.proxyUrl) {
+      // Close proxy session
+      await fetch(`${this.proxyUrl}/api/sessions/${this.sessionId}`, {
+        method: 'DELETE',
+      });
+      this.sessionId = null;
+      this.proxyUrl = null;
+    } else {
+      // Close direct connection
+      if (this.client) {
+        await this.client.close();
+        this.client = null;
+      }
+      if (this.transport) {
+        await this.transport.close();
+        this.transport = null;
+      }
     }
   }
 
   isConnected(): boolean {
+    if (this.connectionType === 'proxy') {
+      return this.sessionId !== null;
+    }
     return this.client !== null;
   }
 }

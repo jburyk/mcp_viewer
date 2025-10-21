@@ -73,13 +73,18 @@ class MCPViewerApp {
       if (connectionType === 'stdio') {
         const command = (document.getElementById('command') as HTMLInputElement).value;
         const argsStr = (document.getElementById('args') as HTMLInputElement).value;
+        const proxyUrl = (document.getElementById('proxyUrl') as HTMLInputElement).value;
         const args = argsStr ? argsStr.split(' ').filter(arg => arg.trim()) : [];
 
         if (!command) {
           throw new Error('Please enter a command');
         }
 
-        context = await this.mcpClient.connectStdio({ command, args });
+        if (!proxyUrl) {
+          throw new Error('Please enter a proxy server URL');
+        }
+
+        context = await this.mcpClient.connectStdio({ command, args }, { proxyUrl });
       } else {
         const endpoint = (document.getElementById('endpoint') as HTMLInputElement).value;
 

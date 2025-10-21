@@ -36,6 +36,11 @@
               <label for="args">Arguments (optional):</label>
               <input type="text" id="args" placeholder="arg1 arg2" />
             </div>
+            <div class="form-group">
+              <label for="proxyUrl">Proxy Server URL:</label>
+              <input type="url" id="proxyUrl" placeholder="http://localhost:3001" value="http://localhost:3001" />
+              <small style="color: #64748b; font-size: 0.875rem;">stdio connections require a backend proxy server</small>
+            </div>
           </div>
 
           <div id="sse-config" class="config-section" style="display: none;">
