@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MCP Context Viewer</title>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>MCP Context Viewer</h1>
+        <p>Analyze what context an MCP server adds and count tokens</p>
+      </header>
+
+      <main>
+        <section class="connection-panel">
+          <h2>Connect to MCP Server</h2>
+
+          <div class="form-group">
+            <label>
+              <input type="radio" name="connectionType" value="stdio" checked />
+              stdio (Local Command)
+            </label>
+            <label>
+              <input type="radio" name="connectionType" value="sse" />
+              SSE (Server-Sent Events)
+            </label>
+          </div>
+
+          <div id="stdio-config" class="config-section">
+            <div class="form-group">
+              <label for="command">Command:</label>
+              <input type="text" id="command" placeholder="npx -y @modelcontextprotocol/server-everything" />
+            </div>
+            <div class="form-group">
+              <label for="args">Arguments (optional):</label>
+              <input type="text" id="args" placeholder="arg1 arg2" />
+            </div>
+          </div>
+
+          <div id="sse-config" class="config-section" style="display: none;">
+            <div class="form-group">
+              <label for="endpoint">Endpoint URL:</label>
+              <input type="url" id="endpoint" placeholder="http://localhost:3000/sse" />
+            </div>
+          </div>
+
+          <button id="connectBtn" class="btn-primary">Connect</button>
+          <button id="disconnectBtn" class="btn-secondary" style="display: none;">Disconnect</button>
+        </section>
+
+        <section class="status-panel">
+          <h3>Status</h3>
+          <div id="status" class="status-message">Not connected</div>
+        </section>
+
+        <section class="tools-panel">
+          <h3>Available Tools</h3>
+          <div id="tools" class="tools-list">
+            <p class="placeholder">Connect to a server to see available tools</p>
+          </div>
+        </section>
+
+        <section class="resources-panel">
+          <h3>Available Resources</h3>
+          <div id="resources" class="resources-list">
+            <p class="placeholder">Connect to a server to see available resources</p>
+          </div>
+        </section>
+
+        <section class="prompts-panel">
+          <h3>Available Prompts</h3>
+          <div id="prompts" class="prompts-list">
+            <p class="placeholder">Connect to a server to see available prompts</p>
+          </div>
+        </section>
+
+        <section class="token-analysis">
+          <h2>Token Analysis</h2>
+          <div class="token-stats">
+            <div class="stat-card">
+              <h4>Total Tokens</h4>
+              <div id="totalTokens" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+              <h4>Tools Tokens</h4>
+              <div id="toolsTokens" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+              <h4>Resources Tokens</h4>
+              <div id="resourcesTokens" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+              <h4>Prompts Tokens</h4>
+              <div id="promptsTokens" class="stat-value">0</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="raw-content">
+          <h2>Raw Context Content</h2>
+          <div class="content-tabs">
+            <button class="tab-btn active" data-tab="all">All</button>
+            <button class="tab-btn" data-tab="tools">Tools</button>
+            <button class="tab-btn" data-tab="resources">Resources</button>
+            <button class="tab-btn" data-tab="prompts">Prompts</button>
+          </div>
+          <pre id="rawContent" class="content-display">Connect to a server to view context</pre>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
