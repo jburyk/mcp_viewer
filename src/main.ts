@@ -7,6 +7,9 @@ class MCPViewerApp {
   private currentContext: MCPContext | null = null;
   private currentAnalysis: ContextAnalysis | null = null;
   private currentTab: 'all' | 'tools' | 'resources' | 'prompts' = 'all';
+  private enabledTools: Set<string> = new Set();
+  private enabledResources: Set<string> = new Set();
+  private enabledPrompts: Set<string> = new Set();
 
   constructor() {
     this.mcpClient = new MCPClientWrapper();
@@ -41,6 +44,14 @@ class MCPViewerApp {
         this.switchTab(tab);
       });
     });
+
+    // Select all/deselect all buttons
+    document.getElementById('selectAllTools')?.addEventListener('click', () => this.selectAll('tools'));
+    document.getElementById('deselectAllTools')?.addEventListener('click', () => this.deselectAll('tools'));
+    document.getElementById('selectAllResources')?.addEventListener('click', () => this.selectAll('resources'));
+    document.getElementById('deselectAllResources')?.addEventListener('click', () => this.deselectAll('resources'));
+    document.getElementById('selectAllPrompts')?.addEventListener('click', () => this.selectAll('prompts'));
+    document.getElementById('deselectAllPrompts')?.addEventListener('click', () => this.deselectAll('prompts'));
   }
 
   private handleConnectionTypeChange(type: 'stdio' | 'sse'): void {
@@ -150,10 +161,21 @@ class MCPViewerApp {
   private updateUI(): void {
     if (!this.currentContext || !this.currentAnalysis) return;
 
+    // Initialize enabled sets on first load
+    if (this.enabledTools.size === 0) {
+      this.currentContext.tools.forEach(tool => this.enabledTools.add(tool.name));
+    }
+    if (this.enabledResources.size === 0) {
+      this.currentContext.resources.forEach(resource => this.enabledResources.add(resource.uri));
+    }
+    if (this.enabledPrompts.size === 0) {
+      this.currentContext.prompts.forEach(prompt => this.enabledPrompts.add(prompt.name));
+    }
+
     this.renderTools(this.currentContext.tools);
     this.renderResources(this.currentContext.resources);
     this.renderPrompts(this.currentContext.prompts);
-    this.updateTokenStats();
+    this.recalculateTokens();
     this.updateRawContent();
   }
 
@@ -167,15 +189,28 @@ class MCPViewerApp {
     }
 
     toolsEl.innerHTML = tools
-      .map(
-        (tool) => `
-      <div class="tool-item">
-        <h4>${this.escapeHtml(tool.name)}</h4>
-        <p>${this.escapeHtml(tool.description || 'No description')}</p>
+      .map((tool) => {
+        const isEnabled = this.enabledTools.has(tool.name);
+        return `
+      <div class="tool-item ${isEnabled ? '' : 'disabled'}" data-tool="${this.escapeHtml(tool.name)}">
+        <input type="checkbox" class="item-checkbox tool-checkbox" ${isEnabled ? 'checked' : ''} data-name="${this.escapeHtml(tool.name)}">
+        <div class="item-content">
+          <h4>${this.escapeHtml(tool.name)}</h4>
+          <p>${this.escapeHtml(tool.description || 'No description')}</p>
+        </div>
       </div>
-    `
-      )
+    `;
+      })
       .join('');
+
+    // Add event listeners to checkboxes
+    toolsEl.querySelectorAll('.tool-checkbox').forEach((checkbox) => {
+      checkbox.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        const toolName = target.dataset.name!;
+        this.toggleTool(toolName, target.checked);
+      });
+    });
   }
 
   private renderResources(resources: MCPContext['resources']): void {
@@ -188,18 +223,31 @@ class MCPViewerApp {
     }
 
     resourcesEl.innerHTML = resources
-      .map(
-        (resource) => `
-      <div class="resource-item">
-        <h4>${this.escapeHtml(resource.name)}</h4>
-        <p>${this.escapeHtml(resource.description || 'No description')}</p>
-        <p style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem;">
-          URI: ${this.escapeHtml(resource.uri)}
-        </p>
+      .map((resource) => {
+        const isEnabled = this.enabledResources.has(resource.uri);
+        return `
+      <div class="resource-item ${isEnabled ? '' : 'disabled'}" data-resource="${this.escapeHtml(resource.uri)}">
+        <input type="checkbox" class="item-checkbox resource-checkbox" ${isEnabled ? 'checked' : ''} data-uri="${this.escapeHtml(resource.uri)}">
+        <div class="item-content">
+          <h4>${this.escapeHtml(resource.name)}</h4>
+          <p>${this.escapeHtml(resource.description || 'No description')}</p>
+          <p style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem;">
+            URI: ${this.escapeHtml(resource.uri)}
+          </p>
+        </div>
       </div>
-    `
-      )
+    `;
+      })
       .join('');
+
+    // Add event listeners to checkboxes
+    resourcesEl.querySelectorAll('.resource-checkbox').forEach((checkbox) => {
+      checkbox.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        const resourceUri = target.dataset.uri!;
+        this.toggleResource(resourceUri, target.checked);
+      });
+    });
   }
 
   private renderPrompts(prompts: MCPContext['prompts']): void {
@@ -212,22 +260,35 @@ class MCPViewerApp {
     }
 
     promptsEl.innerHTML = prompts
-      .map(
-        (prompt) => `
-      <div class="prompt-item">
-        <h4>${this.escapeHtml(prompt.name)}</h4>
-        <p>${this.escapeHtml(prompt.description || 'No description')}</p>
-        ${
-          prompt.arguments && prompt.arguments.length > 0
-            ? `<p style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem;">
-                Arguments: ${prompt.arguments.map(arg => arg.name).join(', ')}
-              </p>`
-            : ''
-        }
+      .map((prompt) => {
+        const isEnabled = this.enabledPrompts.has(prompt.name);
+        return `
+      <div class="prompt-item ${isEnabled ? '' : 'disabled'}" data-prompt="${this.escapeHtml(prompt.name)}">
+        <input type="checkbox" class="item-checkbox prompt-checkbox" ${isEnabled ? 'checked' : ''} data-name="${this.escapeHtml(prompt.name)}">
+        <div class="item-content">
+          <h4>${this.escapeHtml(prompt.name)}</h4>
+          <p>${this.escapeHtml(prompt.description || 'No description')}</p>
+          ${
+            prompt.arguments && prompt.arguments.length > 0
+              ? `<p style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem;">
+                  Arguments: ${prompt.arguments.map(arg => arg.name).join(', ')}
+                </p>`
+              : ''
+          }
+        </div>
       </div>
-    `
-      )
+    `;
+      })
       .join('');
+
+    // Add event listeners to checkboxes
+    promptsEl.querySelectorAll('.prompt-checkbox').forEach((checkbox) => {
+      checkbox.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        const promptName = target.dataset.name!;
+        this.togglePrompt(promptName, target.checked);
+      });
+    });
   }
 
   private updateTokenStats(): void {
@@ -281,6 +342,129 @@ class MCPViewerApp {
     this.updateRawContent();
   }
 
+  private toggleTool(toolName: string, enabled: boolean): void {
+    if (enabled) {
+      this.enabledTools.add(toolName);
+    } else {
+      this.enabledTools.delete(toolName);
+    }
+
+    // Update item appearance
+    const item = document.querySelector(`[data-tool="${toolName}"]`);
+    if (item) {
+      if (enabled) {
+        item.classList.remove('disabled');
+      } else {
+        item.classList.add('disabled');
+      }
+    }
+
+    this.recalculateTokens();
+    this.updateRawContent();
+  }
+
+  private toggleResource(resourceUri: string, enabled: boolean): void {
+    if (enabled) {
+      this.enabledResources.add(resourceUri);
+    } else {
+      this.enabledResources.delete(resourceUri);
+    }
+
+    // Update item appearance
+    const item = document.querySelector(`[data-resource="${resourceUri}"]`);
+    if (item) {
+      if (enabled) {
+        item.classList.remove('disabled');
+      } else {
+        item.classList.add('disabled');
+      }
+    }
+
+    this.recalculateTokens();
+    this.updateRawContent();
+  }
+
+  private togglePrompt(promptName: string, enabled: boolean): void {
+    if (enabled) {
+      this.enabledPrompts.add(promptName);
+    } else {
+      this.enabledPrompts.delete(promptName);
+    }
+
+    // Update item appearance
+    const item = document.querySelector(`[data-prompt="${promptName}"]`);
+    if (item) {
+      if (enabled) {
+        item.classList.remove('disabled');
+      } else {
+        item.classList.add('disabled');
+      }
+    }
+
+    this.recalculateTokens();
+    this.updateRawContent();
+  }
+
+  private selectAll(type: 'tools' | 'resources' | 'prompts'): void {
+    if (!this.currentContext) return;
+
+    if (type === 'tools') {
+      this.currentContext.tools.forEach(tool => this.enabledTools.add(tool.name));
+      this.renderTools(this.currentContext.tools);
+    } else if (type === 'resources') {
+      this.currentContext.resources.forEach(resource => this.enabledResources.add(resource.uri));
+      this.renderResources(this.currentContext.resources);
+    } else if (type === 'prompts') {
+      this.currentContext.prompts.forEach(prompt => this.enabledPrompts.add(prompt.name));
+      this.renderPrompts(this.currentContext.prompts);
+    }
+
+    this.recalculateTokens();
+    this.updateRawContent();
+  }
+
+  private deselectAll(type: 'tools' | 'resources' | 'prompts'): void {
+    if (!this.currentContext) return;
+
+    if (type === 'tools') {
+      this.enabledTools.clear();
+      this.renderTools(this.currentContext.tools);
+    } else if (type === 'resources') {
+      this.enabledResources.clear();
+      this.renderResources(this.currentContext.resources);
+    } else if (type === 'prompts') {
+      this.enabledPrompts.clear();
+      this.renderPrompts(this.currentContext.prompts);
+    }
+
+    this.recalculateTokens();
+    this.updateRawContent();
+  }
+
+  private recalculateTokens(): void {
+    if (!this.currentContext) return;
+
+    // Filter to only enabled items
+    const enabledTools = this.currentContext.tools.filter(tool =>
+      this.enabledTools.has(tool.name)
+    );
+    const enabledResources = this.currentContext.resources.filter(resource =>
+      this.enabledResources.has(resource.uri)
+    );
+    const enabledPrompts = this.currentContext.prompts.filter(prompt =>
+      this.enabledPrompts.has(prompt.name)
+    );
+
+    // Recalculate token analysis
+    this.currentAnalysis = analyzeContext({
+      tools: enabledTools,
+      resources: enabledResources,
+      prompts: enabledPrompts,
+    });
+
+    this.updateTokenStats();
+  }
+
   private clearUI(): void {
     document.getElementById('tools')!.innerHTML = '<p class="placeholder">Connect to a server to see available tools</p>';
     document.getElementById('resources')!.innerHTML = '<p class="placeholder">Connect to a server to see available resources</p>';
@@ -292,6 +476,11 @@ class MCPViewerApp {
     document.getElementById('promptsTokens')!.textContent = '0';
 
     document.getElementById('rawContent')!.textContent = 'Connect to a server to view context';
+
+    // Clear enabled sets
+    this.enabledTools.clear();
+    this.enabledResources.clear();
+    this.enabledPrompts.clear();
   }
 
   private escapeHtml(text: string): string {

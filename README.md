@@ -7,9 +7,11 @@ A web-based tool to analyze and visualize the context that MCP (Model Context Pr
 - Connect to MCP servers via SSE (Server-Sent Events) or stdio (via proxy)
 - Backend proxy server for stdio MCP connections
 - View all available tools, resources, and prompts from the MCP server
-- Analyze token usage broken down by category
-- Display raw JSON context content
-- Modern, responsive UI
+- **Toggle tools/resources/prompts on/off** to see live token count updates
+- **Select All / Deselect All** controls for easy bulk management
+- Analyze token usage broken down by category with **live recalculation**
+- Display raw JSON context content (filtered to enabled items only)
+- Modern, responsive UI with visual indicators for enabled/disabled items
 
 ## Installation
 
@@ -90,6 +92,37 @@ For MCP servers that expose an SSE endpoint directly:
 3. Click "Connect"
 
 This connects directly from the browser to the SSE endpoint without using the proxy.
+
+## Using the Toggle Feature
+
+Once connected to an MCP server, you can interactively control which tools, resources, and prompts are included in the token count:
+
+### Individual Toggles
+
+- Each tool, resource, and prompt has a checkbox
+- Check/uncheck to enable/disable individual items
+- Disabled items appear dimmed and are excluded from token calculations
+- Token counts update **instantly** when you toggle items
+
+### Bulk Controls
+
+Each section (Tools, Resources, Prompts) has bulk control buttons:
+
+- **Select All**: Enable all items in that section
+- **Deselect All**: Disable all items in that section
+
+### Live Token Analysis
+
+As you toggle items on/off:
+- Token counts recalculate in real-time
+- The raw JSON content updates to show only enabled items
+- Visual feedback shows which items are included in the count
+
+This feature is useful for:
+- Understanding which tools contribute most to context size
+- Testing different combinations of tools/resources
+- Optimizing your MCP server configuration
+- Planning context budgets for LLM applications
 
 ## How It Works
 
